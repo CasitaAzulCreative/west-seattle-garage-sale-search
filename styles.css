@@ -266,8 +266,87 @@ select:focus,
 }
 
 .results-grid.is-hidden,
+.map-view.is-hidden,
 .table-view.is-hidden {
   display: none;
+}
+
+.map-view {
+  margin-top: 8px;
+}
+
+.map-shell {
+  border-top: 1px solid #f1f3f4;
+  padding-top: 18px;
+}
+
+.map-status {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.map-canvas {
+  min-height: 420px;
+  border: 1px solid #e8eaed;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #eef3f8;
+  box-shadow: inset 0 1px 2px rgba(60, 64, 67, 0.08);
+}
+
+.map-popup {
+  display: grid;
+  gap: 8px;
+  min-width: 210px;
+  max-width: 270px;
+}
+
+.map-popup-title,
+.map-popup-address,
+.map-popup-description {
+  margin: 0;
+}
+
+.map-popup-title {
+  color: var(--link);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.map-popup-address {
+  color: var(--green);
+  font-size: 0.92rem;
+}
+
+.map-popup-description {
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.map-popup-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.map-popup-keyword {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  color: #3c4043;
+  font-size: 0.75rem;
+}
+
+.map-popup-link {
+  color: var(--link);
+  font-size: 0.92rem;
+  text-decoration: none;
 }
 
 .sale-card {
@@ -402,5 +481,12 @@ select:focus,
 
   .app-frame {
     max-width: 760px;
+  }
+}
+
+@media (max-width: 640px) {
+  .map-canvas {
+    min-height: 360px;
+    border-radius: 14px;
   }
 }

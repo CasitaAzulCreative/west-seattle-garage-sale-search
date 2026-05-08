@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>West Seattle Garage Sales</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
   </head>
   <body>
     <div class="page-shell">
@@ -37,6 +42,7 @@
 
           <div class="panel-actions">
             <button id="searchButton" class="action-button" type="button">Search Sales</button>
+            <button id="viewMapButton" class="action-button secondary-button" type="button">Map View</button>
             <button id="viewTableButton" class="action-button secondary-button" type="button">View All Table</button>
             <button id="viewCardsButton" class="action-button secondary-button" type="button">Card View</button>
             <button id="clearButton" class="action-button secondary-button" type="button">Clear</button>
@@ -71,6 +77,12 @@
 
         <section class="results-panel">
           <div id="results" class="results-grid"></div>
+          <div id="mapView" class="map-view is-hidden">
+            <div class="map-shell">
+              <p id="mapStatus" class="map-status">Map results will appear here.</p>
+              <div id="mapCanvas" class="map-canvas" aria-label="Map of matching garage sales"></div>
+            </div>
+          </div>
           <div id="tableView" class="table-view is-hidden">
             <div class="table-shell">
               <table class="results-table">
@@ -106,6 +118,7 @@
     </template>
 
     <script src="./sales-data.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="./app.js"></script>
   </body>
 </html>
