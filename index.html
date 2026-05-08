@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>West Seattle Garage Sales</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="logo-lockup">
+          <h1 class="search-logo" aria-label="West Seattle Garage Sale Search">
+            <span class="logo-blue">West</span>
+            <span class="logo-red">Seattle</span>
+            <span class="logo-yellow">Garage</span>
+            <span class="logo-blue">Sale</span>
+            <span class="logo-green">Search</span>
+          </h1>
+          <p class="hero-text">
+            Search keywords, addresses, place names, and descriptions from your phone like a garage-sale search engine.
+          </p>
+        </div>
+      </header>
+
+      <main class="app-frame">
+        <section class="control-panel">
+          <label class="search-field">
+            <span class="visually-hidden">Search garage sales</span>
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Search West Seattle garage sales"
+              autocomplete="off"
+            />
+          </label>
+
+          <div class="panel-actions">
+            <button id="searchButton" class="action-button" type="button">Search Sales</button>
+            <button id="viewTableButton" class="action-button secondary-button" type="button">View All Table</button>
+            <button id="viewCardsButton" class="action-button secondary-button" type="button">Card View</button>
+            <button id="clearButton" class="action-button secondary-button" type="button">Clear</button>
+          </div>
+
+          <div class="panel-row">
+            <label class="select-field">
+              <span>Sort results</span>
+              <select id="sortSelect">
+                <option value="relevance">Best match</option>
+                <option value="address">Address</option>
+                <option value="place">Place name</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="result-meta">
+            <p id="resultSummary">Loading sales…</p>
+            <p class="index-meta">
+              <span id="salesCount">0</span> sales indexed • <span id="keywordCount">0</span> keyword filters
+            </p>
+          </div>
+        </section>
+
+        <section class="keyword-panel">
+          <div class="keyword-panel-header">
+            <h2>Keyword shortcuts</h2>
+            <p>Tap a keyword for instant filtering.</p>
+          </div>
+          <div id="keywordChips" class="keyword-chip-grid" aria-label="Keyword filters"></div>
+        </section>
+
+        <section class="results-panel">
+          <div id="results" class="results-grid"></div>
+          <div id="tableView" class="table-view is-hidden">
+            <div class="table-shell">
+              <table class="results-table">
+                <thead>
+                  <tr>
+                    <th><button class="table-sort" type="button" data-sort-key="place">Place Name</button></th>
+                    <th><button class="table-sort" type="button" data-sort-key="address">Address</button></th>
+                    <th><button class="table-sort" type="button" data-sort-key="keywords">Keywords</button></th>
+                    <th><button class="table-sort" type="button" data-sort-key="description">Description</button></th>
+                    <th>Map</th>
+                  </tr>
+                </thead>
+                <tbody id="resultsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="saleCardTemplate">
+      <article class="sale-card">
+        <div class="sale-card-top">
+          <div class="sale-heading">
+            <p class="sale-address"></p>
+            <h3 class="sale-title"></h3>
+          </div>
+          <a class="map-link" target="_blank" rel="noreferrer">Open map</a>
+        </div>
+        <p class="sale-description"></p>
+        <div class="sale-keywords"></div>
+      </article>
+    </template>
+
+    <script src="./data/sales-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
