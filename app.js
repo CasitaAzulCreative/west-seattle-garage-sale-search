@@ -2,9 +2,11 @@ const searchInput = document.getElementById("searchInput");
 const sortSelect = document.getElementById("sortSelect");
 const clearButton = document.getElementById("clearButton");
 const searchButton = document.getElementById("searchButton");
+const viewKeywordButton = document.getElementById("viewKeywordButton");
 const viewMapButton = document.getElementById("viewMapButton");
 const viewTableButton = document.getElementById("viewTableButton");
 const viewCardsButton = document.getElementById("viewCardsButton");
+const keywordPanel = document.getElementById("keywordPanel");
 const keywordChips = document.getElementById("keywordChips");
 const results = document.getElementById("results");
 const mapView = document.getElementById("mapView");
@@ -23,6 +25,49 @@ const MAP_RESULT_LIMIT = 40;
 const DEFAULT_MAP_CENTER = [47.5715, -122.3862];
 const DEFAULT_MAP_ZOOM = 12;
 const WEST_SEATTLE_VIEWBOX = "-122.435,47.607,-122.320,47.505";
+const VIEW_RESULT_MODES = new Set(["cards", "keywords"]);
+const SORT_LABELS = {
+  place: "Place Name",
+  address: "Address",
+  keywords: "Keywords",
+  description: "Description",
+};
+const KEYWORD_LABELS = {
+  "antiques-vintage": "Antiques Vintage",
+  "art-crafts": "Art Crafts",
+  "baby-kids": "Baby Kids",
+  "books-media": "Books Media",
+  "camping-outdoor": "Camping Outdoor",
+  clothing: "Clothing",
+  collectibles: "Collectibles",
+  "electronics-gaming": "Electronics Gaming",
+  friday: "Friday",
+  "food-treats": "Food Treats",
+  "free-stuff": "Free Stuff",
+  furniture: "Furniture",
+  huge: "Huge",
+  housewares: "Housewares",
+  kitchen: "Kitchen",
+  lego: "Lego",
+  mens: "Men's",
+  "moving": "Moving",
+  "multi-family": "Multi-Family",
+  "must-go": "Must Go",
+  "music-vinyl": "Music Vinyl",
+  "nonprofit-fundraiser": "Nonprofit Fundraiser",
+  pet: "Pet",
+  plants: "Plants",
+  "plants-garden": "Plants Garden",
+  "plus-size": "Plus Size",
+  pokemon: "Pokemon",
+  saturday: "Saturday",
+  "sports-fitness": "Sports Fitness",
+  sunday: "Sunday",
+  "tools-diy": "Tools DIY",
+  "toys-games": "Toys Games",
+  vehicle: "Vehicle",
+  womens: "Women's",
+};
 
 let sales = [];
 let activeKeyword = null;
@@ -38,12 +83,21 @@ let markerLayer = null;
 let mapRenderToken = 0;
 
 const normalize = (value) => (value || "").toLowerCase().trim();
+
 const toTitleCase = (value) =>
   (value || "")
     .split("-")
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+function formatKeywordLabel(value) {
+  return KEYWORD_LABELS[value] || toTitleCase(value);
+}
+
+function getSortLabel(key) {
+  return SORT_LABELS[key] || toTitleCase(key);
+}
 
 function loadGeocodeCache() {
   try {
@@ -148,6 +202,15 @@ function sortSales(items, mode, query, keyword) {
   return scored.map((item) => item.sale);
 }
 
+function activateKeyword(keyword, allowToggle = false) {
+  activeKeyword = allowToggle && activeKeyword === keyword ? null : keyword;
+  renderKeywordChips(allKeywords);
+  if (viewMode !== "keywords") {
+    setViewMode("keywords");
+  }
+  renderSales();
+}
+
 function renderKeywordChips(keywordList) {
   keywordChips.innerHTML = "";
 
@@ -155,11 +218,9 @@ function renderKeywordChips(keywordList) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `keyword-chip${activeKeyword === keyword ? " is-active" : ""}`;
-    button.textContent = toTitleCase(keyword);
+    button.textContent = formatKeywordLabel(keyword);
     button.addEventListener("click", () => {
-      activeKeyword = activeKeyword === keyword ? null : keyword;
-      renderKeywordChips(keywordList);
-      renderSales();
+      activateKeyword(keyword, true);
     });
     keywordChips.appendChild(button);
   });
@@ -183,10 +244,14 @@ function saleMatches(sale, query, keyword) {
 
 function setViewMode(nextMode) {
   viewMode = nextMode;
-  results.classList.toggle("is-hidden", nextMode !== "cards");
+
+  results.classList.toggle("is-hidden", !VIEW_RESULT_MODES.has(nextMode));
+  keywordPanel.classList.toggle("is-hidden", nextMode !== "keywords");
   mapView.classList.toggle("is-hidden", nextMode !== "map");
   tableView.classList.toggle("is-hidden", nextMode !== "table");
+
   viewCardsButton.classList.toggle("is-active", nextMode === "cards");
+  viewKeywordButton.classList.toggle("is-active", nextMode === "keywords");
   viewMapButton.classList.toggle("is-active", nextMode === "map");
   viewTableButton.classList.toggle("is-active", nextMode === "table");
 
@@ -212,6 +277,7 @@ function getFilteredAndSortedSales() {
 function sortTableRows(items) {
   const sorted = [...items];
   const direction = tableSort.direction === "asc" ? 1 : -1;
+
   sorted.sort((left, right) => {
     let a = "";
     let b = "";
@@ -232,6 +298,7 @@ function sortTableRows(items) {
 
     return a.localeCompare(b) * direction;
   });
+
   return sorted;
 }
 
@@ -240,18 +307,17 @@ function renderTable(ordered) {
   const sortedRows = sortTableRows(ordered);
 
   tableSortButtons.forEach((button) => {
+    const label = getSortLabel(button.dataset.sortKey);
     const isActive = button.dataset.sortKey === tableSort.key;
     button.classList.toggle("is-active", isActive);
     button.textContent = isActive
-      ? `${button.dataset.sortKey === "place" ? "Place Name" : button.dataset.sortKey.charAt(0).toUpperCase() + button.dataset.sortKey.slice(1)} ${tableSort.direction === "asc" ? "↑" : "↓"}`
-      : button.dataset.sortKey === "place"
-        ? "Place Name"
-        : button.dataset.sortKey.charAt(0).toUpperCase() + button.dataset.sortKey.slice(1);
+      ? `${label} ${tableSort.direction === "asc" ? "↑" : "↓"}`
+      : label;
   });
 
   if (!sortedRows.length) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td class="table-empty" colspan="5">No sales matched that search.</td>`;
+    row.innerHTML = '<td class="table-empty" colspan="5">No sales matched that search.</td>';
     resultsTableBody.appendChild(row);
     return;
   }
@@ -261,7 +327,7 @@ function renderTable(ordered) {
     const keywordHtml = sale.keywords
       .map(
         (keyword) =>
-          `<button class="sale-keyword keyword-chip${activeKeyword === keyword ? " is-active" : ""}" type="button" data-keyword="${keyword}">${toTitleCase(keyword)}</button>`
+          `<button class="sale-keyword keyword-chip${activeKeyword === keyword ? " is-active" : ""}" type="button" data-keyword="${keyword}">${formatKeywordLabel(keyword)}</button>`
       )
       .join("");
 
@@ -275,9 +341,7 @@ function renderTable(ordered) {
 
     row.querySelectorAll("[data-keyword]").forEach((button) => {
       button.addEventListener("click", () => {
-        activeKeyword = button.dataset.keyword;
-        renderKeywordChips(allKeywords);
-        renderSales();
+        activateKeyword(button.dataset.keyword);
       });
     });
 
@@ -330,7 +394,7 @@ function fitMapToMarkers() {
 
 function buildMapPopup(sale) {
   const keywordMarkup = sale.keywords
-    .map((keyword) => `<span class="map-popup-keyword">${escapeHtml(toTitleCase(keyword))}</span>`)
+    .map((keyword) => `<span class="map-popup-keyword">${escapeHtml(formatKeywordLabel(keyword))}</span>`)
     .join("");
 
   return `
@@ -406,7 +470,13 @@ async function geocodeSale(sale) {
   return coordinates;
 }
 
-function getMapStatusText({ mappedCount, visibleCount, totalCount, overflowCount, loadingCount }) {
+function getMapStatusText({
+  mappedCount,
+  visibleCount,
+  totalCount,
+  overflowCount,
+  loadingCount,
+}) {
   const shownLabel =
     overflowCount > 0
       ? `Showing the first ${visibleCount} of ${totalCount} matching sales on the map.`
@@ -497,9 +567,7 @@ async function renderMap(ordered) {
   }
 }
 
-function renderSales() {
-  const { query, ordered } = getFilteredAndSortedSales();
-
+function renderCards(ordered) {
   results.innerHTML = "";
 
   if (!ordered.length) {
@@ -508,11 +576,6 @@ function renderSales() {
         No sales matched that search. Try a different keyword, address, or clear the current filter.
       </div>
     `;
-    resultSummary.textContent = "0 matching sales";
-    renderTable([]);
-    if (viewMode === "map") {
-      renderMap([]);
-    }
     return;
   }
 
@@ -527,7 +590,7 @@ function renderSales() {
 
     title.textContent = getSaleLabel(sale);
     address.textContent = sale.address || "West Seattle";
-    description.textContent = sale.description;
+    description.textContent = sale.description || "No description provided.";
     mapLink.href = getMapsUrl(sale);
 
     sale.keywords.forEach((keyword) => {
@@ -537,21 +600,26 @@ function renderSales() {
       if (activeKeyword === keyword) {
         pill.classList.add("is-active");
       }
-      pill.textContent = toTitleCase(keyword);
+      pill.textContent = formatKeywordLabel(keyword);
       pill.addEventListener("click", () => {
-        activeKeyword = keyword;
-        renderKeywordChips(allKeywords);
-        renderSales();
+        activateKeyword(keyword);
       });
       keywordWrap.appendChild(pill);
     });
 
     results.appendChild(card);
   });
+}
+
+function renderSales() {
+  const { query, ordered } = getFilteredAndSortedSales();
+
+  renderCards(ordered);
 
   const searchLabel = query ? ` for "${searchInput.value.trim()}"` : "";
-  const keywordLabel = activeKeyword ? ` in ${toTitleCase(activeKeyword)}` : "";
+  const keywordLabel = activeKeyword ? ` in ${formatKeywordLabel(activeKeyword)}` : "";
   resultSummary.textContent = `${ordered.length} matching sales${searchLabel}${keywordLabel}`;
+
   renderTable(ordered);
 
   if (viewMode === "map") {
@@ -568,7 +636,8 @@ async function init() {
   sales = payload.sales.filter((sale) => !sale.keywords.includes("canceled"));
   allKeywords = payload.keywords
     .map((item) => item.keyword)
-    .filter((keyword) => keyword !== "canceled");
+    .filter((keyword) => keyword !== "canceled")
+    .sort((left, right) => formatKeywordLabel(left).localeCompare(formatKeywordLabel(right)));
 
   salesCount.textContent = String(sales.length);
   keywordCount.textContent = String(allKeywords.length);
@@ -584,6 +653,10 @@ async function init() {
     }
   });
   searchButton.addEventListener("click", renderSales);
+  viewKeywordButton.addEventListener("click", () => {
+    setViewMode("keywords");
+    renderSales();
+  });
   viewMapButton.addEventListener("click", () => {
     setViewMode("map");
     renderSales();
@@ -613,8 +686,9 @@ async function init() {
     searchInput.value = "";
     sortSelect.value = "relevance";
     activeKeyword = null;
-    renderKeywordChips(allKeywords);
     tableSort = { key: "address", direction: "asc" };
+    renderKeywordChips(allKeywords);
+    setViewMode("cards");
     renderSales();
   });
 }

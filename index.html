@@ -14,16 +14,35 @@
   <body>
     <div class="page-shell">
       <header class="hero">
+        <div class="hero-topbar">
+          <a class="contact-link" href="mailto:Nikki@CasitaAzulCreative.com">Nikki@CasitaAzulCreative.com</a>
+          <a
+            class="social-link"
+            href="https://www.instagram.com/casitaazulcreative/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Visit Casita Azul Creative on Instagram"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="3.5" width="17" height="17" rx="5"></rect>
+              <circle cx="12" cy="12" r="4.25"></circle>
+              <circle cx="17.5" cy="6.5" r="1.2"></circle>
+            </svg>
+          </a>
+        </div>
         <div class="logo-lockup">
-          <h1 class="search-logo" aria-label="West Seattle Garage Sale Search">
-            <span class="logo-blue">West</span>
-            <span class="logo-red">Seattle</span>
-            <span class="logo-yellow">Garage</span>
-            <span class="logo-blue">Sale</span>
-            <span class="logo-green">Search</span>
-          </h1>
+          <img
+            class="brand-logo"
+            src="./wscgs-logo.png"
+            alt="WSCGS"
+          />
           <p class="hero-text">
-            Search keywords, addresses, place names, and descriptions from your phone like a garage-sale search engine.
+            Search the West Seattle Community Garage Sale 2026.
+            <a
+              href="https://westseattleblog.com/wsgaragesaledaymap"
+              target="_blank"
+              rel="noreferrer"
+            >Click here to visit their official website.</a>
           </p>
         </div>
       </header>
@@ -42,10 +61,11 @@
 
           <div class="panel-actions">
             <button id="searchButton" class="action-button" type="button">Search Sales</button>
-            <button id="viewMapButton" class="action-button secondary-button" type="button">Map View</button>
-            <button id="viewTableButton" class="action-button secondary-button" type="button">View All Table</button>
-            <button id="viewCardsButton" class="action-button secondary-button" type="button">Card View</button>
-            <button id="clearButton" class="action-button secondary-button" type="button">Clear</button>
+            <button id="viewKeywordButton" class="action-button" type="button">View By Keyword</button>
+            <button id="viewMapButton" class="action-button" type="button">Map View</button>
+            <button id="viewTableButton" class="action-button" type="button">View All Table</button>
+            <button id="viewCardsButton" class="action-button" type="button">Card View</button>
+            <button id="clearButton" class="action-button" type="button">Clear</button>
           </div>
 
           <div class="panel-row">
@@ -67,10 +87,10 @@
           </div>
         </section>
 
-        <section class="keyword-panel">
+        <section id="keywordPanel" class="keyword-panel is-hidden">
           <div class="keyword-panel-header">
-            <h2>Keyword shortcuts</h2>
-            <p>Tap a keyword for instant filtering.</p>
+            <h2>View by keyword</h2>
+            <p>Tap a keyword tab to instantly filter the sale list.</p>
           </div>
           <div id="keywordChips" class="keyword-chip-grid" aria-label="Keyword filters"></div>
         </section>
