@@ -14,6 +14,9 @@
   <body>
     <div class="page-shell">
       <header class="hero">
+        <div class="hero-brand">
+          <img class="brand-logo" src="./WSCGS-Search.png" alt="WSCGS" />
+        </div>
         <div class="hero-topbar">
           <div class="top-links">
             <div class="top-links-line">
@@ -40,13 +43,6 @@
             >Official WSCG Site</a>
           </div>
         </div>
-        <div class="logo-lockup">
-          <img
-            class="brand-logo"
-            src="./WSCGS-Search.png"
-            alt="WSCGS"
-          />
-        </div>
       </header>
 
       <main class="app-frame">
@@ -57,15 +53,14 @@
             <input
               id="searchInput"
               type="search"
-              placeholder="Search West Seattle garage sales"
+              placeholder=""
               autocomplete="off"
             />
           </label>
 
           <div class="search-actions">
             <button id="searchButton" class="retro-button primary-button" type="button">Search</button>
-            <button id="luckyButton" class="retro-button" type="button">I'm Feeling Lucky</button>
-            <button id="clearButton" class="retro-button" type="button">Clear</button>
+            <button id="luckyButton" class="retro-button lucky-button" type="button">I'm Feeling Lucky</button>
           </div>
         </section>
 
@@ -78,29 +73,25 @@
           </div>
         </section>
 
+        <section id="mapDrawer" class="map-drawer" aria-live="polite">
+          <div class="map-shell">
+            <p id="mapStatus" class="map-status">Map results will appear here.</p>
+            <div id="mapCanvas" class="map-canvas" aria-label="Map of matching garage sales"></div>
+          </div>
+        </section>
+
         <section class="result-meta">
           <p id="resultSummary">Loading sales…</p>
-          <p class="index-meta">
-            <span id="salesCount">0</span> sales indexed • <span id="keywordCount">0</span> keyword filters
-          </p>
         </section>
 
         <section id="keywordPanel" class="keyword-panel is-hidden">
-          <div class="keyword-panel-header">
-            <h2>Keyword filters</h2>
-            <p>Tap a keyword tab to instantly filter the sale list.</p>
-          </div>
           <div id="keywordChips" class="keyword-chip-grid" aria-label="Keyword filters"></div>
         </section>
 
         <section class="results-panel">
           <div id="results" class="results-grid"></div>
-          <div id="mapView" class="map-view is-hidden">
-            <div class="map-shell">
-              <p id="mapStatus" class="map-status">Map results will appear here.</p>
-              <div id="mapCanvas" class="map-canvas" aria-label="Map of matching garage sales"></div>
-            </div>
-          </div>
+          <div id="lazySentinel" class="lazy-sentinel" aria-hidden="true"></div>
+
           <div id="tableView" class="table-view is-hidden">
             <div class="table-shell">
               <table class="results-table">
@@ -116,19 +107,26 @@
                 <tbody id="resultsTableBody"></tbody>
               </table>
             </div>
+            <div class="table-pagination">
+              <button id="tablePrevButton" class="retro-button pagination-button" type="button">Previous</button>
+              <p id="tablePageLabel" class="table-page-label">Page 1 of 1</p>
+              <button id="tableNextButton" class="retro-button pagination-button" type="button">Next</button>
+            </div>
           </div>
         </section>
       </main>
     </div>
 
+    <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="Scroll to top">↑</button>
+
     <template id="saleCardTemplate">
       <article class="sale-card">
-        <div class="sale-card-top">
-          <div class="sale-heading">
-            <p class="sale-address"></p>
-            <h3 class="sale-title"></h3>
+        <div class="sale-heading">
+          <h3 class="sale-title"></h3>
+          <div class="sale-links">
+            <a class="sale-address-link" target="_blank" rel="noreferrer"></a>
+            <a class="map-link" target="_blank" rel="noreferrer">View on Map</a>
           </div>
-          <a class="map-link" target="_blank" rel="noreferrer">Open map</a>
         </div>
         <p class="sale-description"></p>
         <div class="sale-keywords"></div>
