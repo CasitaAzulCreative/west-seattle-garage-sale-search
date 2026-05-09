@@ -1,7 +1,7 @@
 const searchInput = document.getElementById("searchInput");
-const sortSelect = document.getElementById("sortSelect");
 const clearButton = document.getElementById("clearButton");
 const searchButton = document.getElementById("searchButton");
+const luckyButton = document.getElementById("luckyButton");
 const viewKeywordButton = document.getElementById("viewKeywordButton");
 const viewMapButton = document.getElementById("viewMapButton");
 const viewTableButton = document.getElementById("viewTableButton");
@@ -26,6 +26,7 @@ const DEFAULT_MAP_CENTER = [47.5715, -122.3862];
 const DEFAULT_MAP_ZOOM = 12;
 const WEST_SEATTLE_VIEWBOX = "-122.435,47.607,-122.320,47.505";
 const VIEW_RESULT_MODES = new Set(["cards", "keywords"]);
+const SPECIAL_MODE_NONPROFIT_LUCKY = "nonprofit-lucky";
 const SORT_LABELS = {
   place: "Place Name",
   address: "Address",
@@ -50,7 +51,7 @@ const KEYWORD_LABELS = {
   kitchen: "Kitchen",
   lego: "Lego",
   mens: "Men's",
-  "moving": "Moving",
+  moving: "Moving",
   "multi-family": "Multi-Family",
   "must-go": "Must Go",
   "music-vinyl": "Music Vinyl",
@@ -81,6 +82,8 @@ let geocodeCache = loadGeocodeCache();
 let mapInstance = null;
 let markerLayer = null;
 let mapRenderToken = 0;
+let specialMode = null;
+let luckyOrder = new Map();
 
 const normalize = (value) => (value || "").toLowerCase().trim();
 
@@ -97,6 +100,40 @@ function formatKeywordLabel(value) {
 
 function getSortLabel(key) {
   return SORT_LABELS[key] || toTitleCase(key);
+}
+
+function getSaleKey(sale) {
+  return [sale.place_name, sale.address, sale.description].join("|");
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function buildLuckyOrder() {
+  luckyOrder = new Map();
+
+  const nonprofitSales = shuffle(
+    sales.filter((sale) => sale.keywords.includes("nonprofit-fundraiser"))
+  );
+
+  nonprofitSales.forEach((sale, index) => {
+    luckyOrder.set(getSaleKey(sale), index);
+  });
+}
+
+function activateLuckyMode() {
+  activeKeyword = null;
+  specialMode = SPECIAL_MODE_NONPROFIT_LUCKY;
+  buildLuckyOrder();
+  renderKeywordChips(allKeywords);
+  setViewMode("cards");
+  renderSales();
 }
 
 function loadGeocodeCache() {
@@ -178,36 +215,45 @@ function scoreSale(sale, query, keyword) {
   return score;
 }
 
-function sortSales(items, mode, query, keyword) {
+function sortSales(items, query, keyword) {
   const scored = items.map((sale) => ({
     sale,
     score: scoreSale(sale, query, keyword),
   }));
 
-  if (mode === "address") {
-    scored.sort((a, b) => a.sale.address.localeCompare(b.sale.address));
-  } else if (mode === "place") {
-    scored.sort((a, b) =>
-      (a.sale.place_name || a.sale.address).localeCompare(
-        b.sale.place_name || b.sale.address
-      )
-    );
-  } else {
-    scored.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.sale.address.localeCompare(b.sale.address);
-    });
-  }
+  scored.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    return (left.sale.address || "").localeCompare(right.sale.address || "");
+  });
 
   return scored.map((item) => item.sale);
 }
 
+function sortLuckySales(items) {
+  return [...items].sort((left, right) => {
+    const leftIndex = luckyOrder.get(getSaleKey(left));
+    const rightIndex = luckyOrder.get(getSaleKey(right));
+
+    if (Number.isFinite(leftIndex) && Number.isFinite(rightIndex)) {
+      return leftIndex - rightIndex;
+    }
+
+    if (Number.isFinite(leftIndex)) return -1;
+    if (Number.isFinite(rightIndex)) return 1;
+
+    return (left.address || "").localeCompare(right.address || "");
+  });
+}
+
 function activateKeyword(keyword, allowToggle = false) {
+  specialMode = null;
   activeKeyword = allowToggle && activeKeyword === keyword ? null : keyword;
   renderKeywordChips(allKeywords);
+
   if (viewMode !== "keywords") {
     setViewMode("keywords");
   }
+
   renderSales();
 }
 
@@ -227,6 +273,13 @@ function renderKeywordChips(keywordList) {
 }
 
 function saleMatches(sale, query, keyword) {
+  if (
+    specialMode === SPECIAL_MODE_NONPROFIT_LUCKY &&
+    !sale.keywords.includes("nonprofit-fundraiser")
+  ) {
+    return false;
+  }
+
   if (keyword && !sale.keywords.includes(keyword)) {
     return false;
   }
@@ -266,10 +319,12 @@ function setViewMode(nextMode) {
 
 function getFilteredAndSortedSales() {
   const query = normalize(searchInput.value);
-  const sortMode = sortSelect.value;
-
   const filtered = sales.filter((sale) => saleMatches(sale, query, activeKeyword));
-  const ordered = sortSales(filtered, sortMode, query, activeKeyword);
+
+  const ordered =
+    specialMode === SPECIAL_MODE_NONPROFIT_LUCKY
+      ? sortLuckySales(filtered)
+      : sortSales(filtered, query, activeKeyword);
 
   return { query, ordered };
 }
@@ -450,8 +505,8 @@ async function geocodeSale(sale) {
     throw new Error(`Geocoder returned ${response.status}`);
   }
 
-  const results = await response.json();
-  const match = results[0];
+  const responseData = await response.json();
+  const match = responseData[0];
   if (!match) {
     return null;
   }
@@ -611,15 +666,32 @@ function renderCards(ordered) {
   });
 }
 
+function buildResultSummary(ordered, query) {
+  const rawQuery = searchInput.value.trim();
+
+  if (specialMode === SPECIAL_MODE_NONPROFIT_LUCKY) {
+    if (rawQuery) {
+      return `${ordered.length} nonprofit sales in random order for "${rawQuery}"`;
+    }
+    return `${ordered.length} nonprofit sales in random order`;
+  }
+
+  if (rawQuery) {
+    return `${ordered.length} matching sales for "${rawQuery}"`;
+  }
+
+  if (activeKeyword) {
+    return `${ordered.length} matching sales for ${formatKeywordLabel(activeKeyword)}`;
+  }
+
+  return `${ordered.length} matching sales`;
+}
+
 function renderSales() {
   const { query, ordered } = getFilteredAndSortedSales();
 
   renderCards(ordered);
-
-  const searchLabel = query ? ` for "${searchInput.value.trim()}"` : "";
-  const keywordLabel = activeKeyword ? ` in ${formatKeywordLabel(activeKeyword)}` : "";
-  resultSummary.textContent = `${ordered.length} matching sales${searchLabel}${keywordLabel}`;
-
+  resultSummary.textContent = buildResultSummary(ordered, query);
   renderTable(ordered);
 
   if (viewMode === "map") {
@@ -649,27 +721,38 @@ async function init() {
   searchInput.addEventListener("input", renderSales);
   searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
+      specialMode = null;
       renderSales();
     }
   });
-  searchButton.addEventListener("click", renderSales);
+
+  searchButton.addEventListener("click", () => {
+    specialMode = null;
+    renderSales();
+  });
+
+  luckyButton.addEventListener("click", activateLuckyMode);
+
   viewKeywordButton.addEventListener("click", () => {
     setViewMode("keywords");
     renderSales();
   });
+
   viewMapButton.addEventListener("click", () => {
     setViewMode("map");
     renderSales();
   });
+
   viewTableButton.addEventListener("click", () => {
     setViewMode("table");
     renderSales();
   });
+
   viewCardsButton.addEventListener("click", () => {
     setViewMode("cards");
     renderSales();
   });
-  sortSelect.addEventListener("change", renderSales);
+
   tableSortButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const nextKey = button.dataset.sortKey;
@@ -682,10 +765,12 @@ async function init() {
       renderSales();
     });
   });
+
   clearButton.addEventListener("click", () => {
     searchInput.value = "";
-    sortSelect.value = "relevance";
     activeKeyword = null;
+    specialMode = null;
+    luckyOrder = new Map();
     tableSort = { key: "address", direction: "asc" };
     renderKeywordChips(allKeywords);
     setViewMode("cards");

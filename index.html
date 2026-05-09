@@ -15,40 +15,43 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero-topbar">
-          <a class="contact-link" href="mailto:Nikki@CasitaAzulCreative.com">Nikki@CasitaAzulCreative.com</a>
-          <a
-            class="social-link"
-            href="https://www.instagram.com/casitaazulcreative/"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Visit Casita Azul Creative on Instagram"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3.5" y="3.5" width="17" height="17" rx="5"></rect>
-              <circle cx="12" cy="12" r="4.25"></circle>
-              <circle cx="17.5" cy="6.5" r="1.2"></circle>
-            </svg>
-          </a>
+          <div class="top-links">
+            <div class="top-links-line">
+              <a class="contact-link" href="mailto:Nikki@CasitaAzulCreative.com">Nikki@CasitaAzulCreative.com</a>
+              <a
+                class="social-link"
+                href="https://www.instagram.com/casitaazulcreative/"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Visit Casita Azul Creative on Instagram"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3.5" y="3.5" width="17" height="17" rx="5"></rect>
+                  <circle cx="12" cy="12" r="4.25"></circle>
+                  <circle cx="17.5" cy="6.5" r="1.2"></circle>
+                </svg>
+              </a>
+            </div>
+            <a
+              class="official-link"
+              href="https://westseattleblog.com/wsgaragesaledaymap"
+              target="_blank"
+              rel="noreferrer"
+            >Official WSCG Site</a>
+          </div>
         </div>
         <div class="logo-lockup">
           <img
             class="brand-logo"
-            src="./wscgs-logo.png"
+            src="./WSCGS-Search.png"
             alt="WSCGS"
           />
-          <p class="hero-text">
-            Search the West Seattle Community Garage Sale 2026.
-            <a
-              href="https://westseattleblog.com/wsgaragesaledaymap"
-              target="_blank"
-              rel="noreferrer"
-            >Click here to visit their official website.</a>
-          </p>
         </div>
       </header>
 
       <main class="app-frame">
-        <section class="control-panel">
+        <section class="search-panel">
+          <h1>Search the West Seattle Garage Sale 2026!</h1>
           <label class="search-field">
             <span class="visually-hidden">Search garage sales</span>
             <input
@@ -59,37 +62,32 @@
             />
           </label>
 
-          <div class="panel-actions">
-            <button id="searchButton" class="action-button" type="button">Search Sales</button>
-            <button id="viewKeywordButton" class="action-button" type="button">View By Keyword</button>
-            <button id="viewMapButton" class="action-button" type="button">Map View</button>
-            <button id="viewTableButton" class="action-button" type="button">View All Table</button>
-            <button id="viewCardsButton" class="action-button" type="button">Card View</button>
-            <button id="clearButton" class="action-button" type="button">Clear</button>
+          <div class="search-actions">
+            <button id="searchButton" class="retro-button primary-button" type="button">Search</button>
+            <button id="luckyButton" class="retro-button" type="button">I'm Feeling Lucky</button>
+            <button id="clearButton" class="retro-button" type="button">Clear</button>
           </div>
+        </section>
 
-          <div class="panel-row">
-            <label class="select-field">
-              <span>Sort results</span>
-              <select id="sortSelect">
-                <option value="relevance">Best match</option>
-                <option value="address">Address</option>
-                <option value="place">Place name</option>
-              </select>
-            </label>
+        <section class="view-toolbar">
+          <button id="viewKeywordButton" class="retro-button toolbar-button" type="button">Keywords</button>
+          <div class="view-actions">
+            <button id="viewMapButton" class="retro-button toolbar-button" type="button">Map View</button>
+            <button id="viewTableButton" class="retro-button toolbar-button" type="button">Table View</button>
+            <button id="viewCardsButton" class="retro-button toolbar-button" type="button">List View</button>
           </div>
+        </section>
 
-          <div class="result-meta">
-            <p id="resultSummary">Loading sales…</p>
-            <p class="index-meta">
-              <span id="salesCount">0</span> sales indexed • <span id="keywordCount">0</span> keyword filters
-            </p>
-          </div>
+        <section class="result-meta">
+          <p id="resultSummary">Loading sales…</p>
+          <p class="index-meta">
+            <span id="salesCount">0</span> sales indexed • <span id="keywordCount">0</span> keyword filters
+          </p>
         </section>
 
         <section id="keywordPanel" class="keyword-panel is-hidden">
           <div class="keyword-panel-header">
-            <h2>View by keyword</h2>
+            <h2>Keyword filters</h2>
             <p>Tap a keyword tab to instantly filter the sale list.</p>
           </div>
           <div id="keywordChips" class="keyword-chip-grid" aria-label="Keyword filters"></div>
