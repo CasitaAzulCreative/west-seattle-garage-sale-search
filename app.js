@@ -1,5 +1,4 @@
 const searchInput = document.getElementById("searchInput");
-const clearButton = document.getElementById("clearButton");
 const searchButton = document.getElementById("searchButton");
 const luckyButton = document.getElementById("luckyButton");
 const viewKeywordButton = document.getElementById("viewKeywordButton");
@@ -8,26 +7,37 @@ const viewTableButton = document.getElementById("viewTableButton");
 const viewCardsButton = document.getElementById("viewCardsButton");
 const keywordPanel = document.getElementById("keywordPanel");
 const keywordChips = document.getElementById("keywordChips");
-const results = document.getElementById("results");
-const mapView = document.getElementById("mapView");
+const mapDrawer = document.getElementById("mapDrawer");
 const mapStatus = document.getElementById("mapStatus");
 const mapCanvas = document.getElementById("mapCanvas");
+const results = document.getElementById("results");
+const lazySentinel = document.getElementById("lazySentinel");
 const tableView = document.getElementById("tableView");
 const resultsTableBody = document.getElementById("resultsTableBody");
+const tablePrevButton = document.getElementById("tablePrevButton");
+const tableNextButton = document.getElementById("tableNextButton");
+const tablePageLabel = document.getElementById("tablePageLabel");
 const resultSummary = document.getElementById("resultSummary");
-const salesCount = document.getElementById("salesCount");
-const keywordCount = document.getElementById("keywordCount");
+const scrollTopButton = document.getElementById("scrollTopButton");
 const template = document.getElementById("saleCardTemplate");
 const tableSortButtons = [...document.querySelectorAll(".table-sort")];
 
 const GEOCODE_CACHE_KEY = "west-seattle-garage-sale-search:geocodes:v1";
+const CARD_BATCH_SIZE = 10;
+const TABLE_PAGE_SIZE = 10;
 const MAP_RESULT_LIMIT = 40;
 const DEFAULT_MAP_CENTER = [47.5715, -122.3862];
 const DEFAULT_MAP_ZOOM = 12;
 const WEST_SEATTLE_VIEWBOX = "-122.435,47.607,-122.320,47.505";
-const VIEW_RESULT_MODES = new Set(["cards", "keywords"]);
+const CARD_VIEW_MODES = new Set(["cards", "keywords", "map"]);
 const SPECIAL_MODE_NONPROFIT_LUCKY = "nonprofit-lucky";
 const SORT_LABELS = {
+  place: "Place Name",
+  address: "Address",
+  keywords: "Keywords",
+  description: "Description",
+};
+const TABLE_LABELS = {
   place: "Place Name",
   address: "Address",
   keywords: "Keywords",
@@ -71,28 +81,33 @@ const KEYWORD_LABELS = {
 };
 
 let sales = [];
-let activeKeyword = null;
 let allKeywords = [];
+let activeKeyword = null;
 let viewMode = "cards";
 let tableSort = {
   key: "address",
   direction: "asc",
 };
+let specialMode = null;
+let luckyOrder = new Map();
+let visibleResultCount = CARD_BATCH_SIZE;
+let tablePage = 1;
+let currentOrderedSales = [];
 let geocodeCache = loadGeocodeCache();
 let mapInstance = null;
 let markerLayer = null;
 let mapRenderToken = 0;
-let specialMode = null;
-let luckyOrder = new Map();
+let lazyObserver = null;
 
 const normalize = (value) => (value || "").toLowerCase().trim();
 
-const toTitleCase = (value) =>
-  (value || "")
+function toTitleCase(value) {
+  return (value || "")
     .split("-")
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
 
 function formatKeywordLabel(value) {
   return KEYWORD_LABELS[value] || toTitleCase(value);
@@ -115,9 +130,13 @@ function shuffle(items) {
   return copy;
 }
 
+function resetResultWindows() {
+  visibleResultCount = CARD_BATCH_SIZE;
+  tablePage = 1;
+}
+
 function buildLuckyOrder() {
   luckyOrder = new Map();
-
   const nonprofitSales = shuffle(
     sales.filter((sale) => sale.keywords.includes("nonprofit-fundraiser"))
   );
@@ -131,6 +150,7 @@ function activateLuckyMode() {
   activeKeyword = null;
   specialMode = SPECIAL_MODE_NONPROFIT_LUCKY;
   buildLuckyOrder();
+  resetResultWindows();
   renderKeywordChips(allKeywords);
   setViewMode("cards");
   renderSales();
@@ -237,10 +257,8 @@ function sortLuckySales(items) {
     if (Number.isFinite(leftIndex) && Number.isFinite(rightIndex)) {
       return leftIndex - rightIndex;
     }
-
     if (Number.isFinite(leftIndex)) return -1;
     if (Number.isFinite(rightIndex)) return 1;
-
     return (left.address || "").localeCompare(right.address || "");
   });
 }
@@ -248,6 +266,7 @@ function sortLuckySales(items) {
 function activateKeyword(keyword, allowToggle = false) {
   specialMode = null;
   activeKeyword = allowToggle && activeKeyword === keyword ? null : keyword;
+  resetResultWindows();
   renderKeywordChips(allKeywords);
 
   if (viewMode !== "keywords") {
@@ -295,18 +314,62 @@ function saleMatches(sale, query, keyword) {
   return haystack.includes(query);
 }
 
+function disconnectLazyObserver() {
+  if (lazyObserver) {
+    lazyObserver.disconnect();
+    lazyObserver = null;
+  }
+}
+
+function setupLazyObserver() {
+  disconnectLazyObserver();
+
+  if (!CARD_VIEW_MODES.has(viewMode) || currentOrderedSales.length <= visibleResultCount) {
+    lazySentinel.classList.add("is-hidden");
+    return;
+  }
+
+  lazySentinel.classList.remove("is-hidden");
+
+  lazyObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[0];
+      if (!entry?.isIntersecting) {
+        return;
+      }
+
+      disconnectLazyObserver();
+      visibleResultCount = Math.min(
+        visibleResultCount + CARD_BATCH_SIZE,
+        currentOrderedSales.length
+      );
+      renderSales();
+    },
+    {
+      rootMargin: "240px 0px 240px 0px",
+    }
+  );
+
+  lazyObserver.observe(lazySentinel);
+}
+
 function setViewMode(nextMode) {
   viewMode = nextMode;
 
-  results.classList.toggle("is-hidden", !VIEW_RESULT_MODES.has(nextMode));
   keywordPanel.classList.toggle("is-hidden", nextMode !== "keywords");
-  mapView.classList.toggle("is-hidden", nextMode !== "map");
+  results.classList.toggle("is-hidden", !CARD_VIEW_MODES.has(nextMode));
+  lazySentinel.classList.toggle("is-hidden", !CARD_VIEW_MODES.has(nextMode));
   tableView.classList.toggle("is-hidden", nextMode !== "table");
+  mapDrawer.classList.toggle("is-open", nextMode === "map");
 
   viewCardsButton.classList.toggle("is-active", nextMode === "cards");
   viewKeywordButton.classList.toggle("is-active", nextMode === "keywords");
   viewMapButton.classList.toggle("is-active", nextMode === "map");
   viewTableButton.classList.toggle("is-active", nextMode === "table");
+
+  if (nextMode !== "map") {
+    mapRenderToken += 1;
+  }
 
   if (nextMode === "map") {
     window.requestAnimationFrame(() => {
@@ -357,6 +420,17 @@ function sortTableRows(items) {
   return sorted;
 }
 
+function updateTablePagination(totalRows) {
+  const totalPages = Math.max(1, Math.ceil(totalRows / TABLE_PAGE_SIZE));
+  if (tablePage > totalPages) {
+    tablePage = totalPages;
+  }
+
+  tablePrevButton.disabled = tablePage <= 1;
+  tableNextButton.disabled = tablePage >= totalPages;
+  tablePageLabel.textContent = `Page ${totalRows ? tablePage : 0} of ${totalRows ? totalPages : 0}`;
+}
+
 function renderTable(ordered) {
   resultsTableBody.innerHTML = "";
   const sortedRows = sortTableRows(ordered);
@@ -370,6 +444,8 @@ function renderTable(ordered) {
       : label;
   });
 
+  updateTablePagination(sortedRows.length);
+
   if (!sortedRows.length) {
     const row = document.createElement("tr");
     row.innerHTML = '<td class="table-empty" colspan="5">No sales matched that search.</td>';
@@ -377,7 +453,10 @@ function renderTable(ordered) {
     return;
   }
 
-  sortedRows.forEach((sale) => {
+  const startIndex = (tablePage - 1) * TABLE_PAGE_SIZE;
+  const pageRows = sortedRows.slice(startIndex, startIndex + TABLE_PAGE_SIZE);
+
+  pageRows.forEach((sale) => {
     const row = document.createElement("tr");
     const keywordHtml = sale.keywords
       .map(
@@ -387,11 +466,26 @@ function renderTable(ordered) {
       .join("");
 
     row.innerHTML = `
-      <td class="table-place">${sale.place_name || "—"}</td>
-      <td class="table-address">${sale.address || "—"}</td>
-      <td><div class="table-keywords">${keywordHtml}</div></td>
-      <td>${sale.description || "—"}</td>
-      <td><a class="table-map-link" target="_blank" rel="noreferrer" href="${getMapsUrl(sale)}">Open map</a></td>
+      <td data-label="${TABLE_LABELS.place}">
+        <span class="table-cell-title">${TABLE_LABELS.place}</span>
+        <span class="table-place-value">${escapeHtml(sale.place_name || "—")}</span>
+      </td>
+      <td data-label="${TABLE_LABELS.address}">
+        <span class="table-cell-title">${TABLE_LABELS.address}</span>
+        ${sale.address ? `<a class="sale-address-link" target="_blank" rel="noreferrer" href="${getMapsUrl(sale)}">${escapeHtml(sale.address)}</a>` : "—"}
+      </td>
+      <td data-label="${TABLE_LABELS.keywords}">
+        <span class="table-cell-title">${TABLE_LABELS.keywords}</span>
+        <div class="table-keywords">${keywordHtml}</div>
+      </td>
+      <td data-label="${TABLE_LABELS.description}">
+        <span class="table-cell-title">${TABLE_LABELS.description}</span>
+        ${escapeHtml(sale.description || "—")}
+      </td>
+      <td data-label="Map">
+        <span class="table-cell-title">Map</span>
+        <a class="table-map-link" target="_blank" rel="noreferrer" href="${getMapsUrl(sale)}">View on Map</a>
+      </td>
     `;
 
     row.querySelectorAll("[data-keyword]").forEach((button) => {
@@ -437,7 +531,7 @@ function fitMapToMarkers() {
   if (!layers.length) {
     mapInstance.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
   } else {
-    mapInstance.fitBounds(markerLayer.getBounds().pad(0.2), {
+    mapInstance.fitBounds(markerLayer.getBounds().pad(0.18), {
       maxZoom: 15,
     });
   }
@@ -458,7 +552,7 @@ function buildMapPopup(sale) {
       <p class="map-popup-address">${escapeHtml(sale.address || "West Seattle")}</p>
       <p class="map-popup-description">${escapeHtml(sale.description || "No description provided.")}</p>
       <div class="map-popup-keywords">${keywordMarkup}</div>
-      <a class="map-popup-link" target="_blank" rel="noreferrer" href="${getMapsUrl(sale)}">Open in Google Maps</a>
+      <a class="map-popup-link" target="_blank" rel="noreferrer" href="${getMapsUrl(sale)}">View on Map</a>
     </div>
   `;
 }
@@ -628,23 +722,26 @@ function renderCards(ordered) {
   if (!ordered.length) {
     results.innerHTML = `
       <div class="empty-state">
-        No sales matched that search. Try a different keyword, address, or clear the current filter.
+        No sales matched that search. Try a different keyword or address.
       </div>
     `;
     return;
   }
 
-  ordered.forEach((sale) => {
+  const visibleSales = ordered.slice(0, visibleResultCount);
+
+  visibleSales.forEach((sale) => {
     const fragment = template.content.cloneNode(true);
     const card = fragment.querySelector(".sale-card");
     const title = fragment.querySelector(".sale-title");
-    const address = fragment.querySelector(".sale-address");
+    const addressLink = fragment.querySelector(".sale-address-link");
     const description = fragment.querySelector(".sale-description");
     const mapLink = fragment.querySelector(".map-link");
     const keywordWrap = fragment.querySelector(".sale-keywords");
 
     title.textContent = getSaleLabel(sale);
-    address.textContent = sale.address || "West Seattle";
+    addressLink.textContent = sale.address || "West Seattle";
+    addressLink.href = getMapsUrl(sale);
     description.textContent = sale.description || "No description provided.";
     mapLink.href = getMapsUrl(sale);
 
@@ -666,7 +763,7 @@ function renderCards(ordered) {
   });
 }
 
-function buildResultSummary(ordered, query) {
+function buildResultSummary(ordered) {
   const rawQuery = searchInput.value.trim();
 
   if (specialMode === SPECIAL_MODE_NONPROFIT_LUCKY) {
@@ -681,22 +778,28 @@ function buildResultSummary(ordered, query) {
   }
 
   if (activeKeyword) {
-    return `${ordered.length} matching sales for ${formatKeywordLabel(activeKeyword)}`;
+    return `${ordered.length} matching sales for "${formatKeywordLabel(activeKeyword)}"`;
   }
 
   return `${ordered.length} matching sales`;
 }
 
 function renderSales() {
-  const { query, ordered } = getFilteredAndSortedSales();
+  const { ordered } = getFilteredAndSortedSales();
+  currentOrderedSales = ordered;
 
+  resultSummary.textContent = buildResultSummary(ordered);
   renderCards(ordered);
-  resultSummary.textContent = buildResultSummary(ordered, query);
   renderTable(ordered);
+  setupLazyObserver();
 
   if (viewMode === "map") {
     renderMap(ordered);
   }
+}
+
+function updateScrollTopButton() {
+  scrollTopButton.classList.toggle("is-visible", window.scrollY > 600);
 }
 
 async function init() {
@@ -711,23 +814,28 @@ async function init() {
     .filter((keyword) => keyword !== "canceled")
     .sort((left, right) => formatKeywordLabel(left).localeCompare(formatKeywordLabel(right)));
 
-  salesCount.textContent = String(sales.length);
-  keywordCount.textContent = String(allKeywords.length);
-
   renderKeywordChips(allKeywords);
+  resetResultWindows();
   setViewMode("cards");
   renderSales();
 
-  searchInput.addEventListener("input", renderSales);
+  searchInput.addEventListener("input", () => {
+    specialMode = null;
+    resetResultWindows();
+    renderSales();
+  });
+
   searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       specialMode = null;
+      resetResultWindows();
       renderSales();
     }
   });
 
   searchButton.addEventListener("click", () => {
     specialMode = null;
+    resetResultWindows();
     renderSales();
   });
 
@@ -762,20 +870,36 @@ async function init() {
         tableSort.key = nextKey;
         tableSort.direction = "asc";
       }
+      tablePage = 1;
       renderSales();
     });
   });
 
-  clearButton.addEventListener("click", () => {
-    searchInput.value = "";
-    activeKeyword = null;
-    specialMode = null;
-    luckyOrder = new Map();
-    tableSort = { key: "address", direction: "asc" };
-    renderKeywordChips(allKeywords);
-    setViewMode("cards");
+  tablePrevButton.addEventListener("click", () => {
+    if (tablePage <= 1) {
+      return;
+    }
+    tablePage -= 1;
     renderSales();
+    tableView.scrollIntoView({ block: "start", behavior: "smooth" });
   });
+
+  tableNextButton.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(currentOrderedSales.length / TABLE_PAGE_SIZE));
+    if (tablePage >= totalPages) {
+      return;
+    }
+    tablePage += 1;
+    renderSales();
+    tableView.scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+
+  scrollTopButton.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  window.addEventListener("scroll", updateScrollTopButton, { passive: true });
+  updateScrollTopButton();
 }
 
 init().catch((error) => {
